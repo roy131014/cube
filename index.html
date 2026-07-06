@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>정육면체</title>
+</head>
+<body>
+<style>
+body{
+display:flex;
+justify-content: center;
+align-items: center;
+min-height:100vh;
+}
+svg{
+transform: scale(20)
+}
+</style>
+<svg id="svg" width="300" height="300"></svg>
+
+<script>
+const svg = document.getElementById("svg");
+
+// 1. 대괄호 유실을 막기 위해 1차원 배열을 x, y, z 객체 구조로 변경
+const vertices = [
+ {x:-1, y:-1, z:-1},
+ {x: 1, y:-1, z:-1},
+ {x: 1, y: 1, z:-1},
+ {x:-1, y: 1, z:-1},
+ {x:-1, y:-1, z: 1},
+ {x: 1, y:-1, z: 1},
+ {x: 1, y: 1, z: 1},
+ {x:-1, y: 1, z: 1}
+];
+
+// 2. 면 데이터 역시 객체의 프로퍼티(a, b, c, d) 구조로 변경하여 유실 원천 차단
+const faces = [
+ {a:0, b:1, c:2, d:3}, // 뒷면
+ {a:4, b:5, c:6, d:7}, // 앞면
+ {a:0, b:1, c:5, d:4}, // 아랫면
+ {a:2, b:3, c:7, d:6}, // 윗면
+ {a:1, b:2, c:6, d:5}, // 우측면
+ {a:0, b:3, c:7, d:4}  // 좌측면
+];
+
+const colors = [
+ "#ff6666",
+ "#66ff66",
+ "#6666ff",
+ "#ffff66",
+ "#66ffff",
+ "#ff66ff"
+];
+
+let angle = 0;
+
+function rotateY(x, y, z, a) {
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    return {
+        x: x * c + z * s,
+        y: y,
+        z: -x * s + z * c
+    };
+}
+
+function rotateX(x, y, z, a) {
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    return {
+        x: x,
+        y: y * c - z * s,
+        z: y * s + z * c
+    };
+}
+
+function project(x, y, z) {
+    const scale = 120;
+    const distance = 5;
+    const p = scale / (z + distance);
+    return {
+        x: 150 + x * p,
+        y: 150 - y * p,
+        z: z
+    };
+}
+
+function draw() {
+    angle += 0.02;
+    svg.innerHTML = "";
+
+    // 대괄호 인덱스 [0],[1],[2] 대신 안전한 .x, .y, .z 프로퍼티 접근법 사용
+    const transformed = vertices.map(v => {
+        let rY = rotateY(v.x, v.y, v.z, angle);
+        let rX = rotateX(rY.x, rY.y, rY.z, angle * 0.7);
+        return rX;
+    });
+
+    const projected = transformed.map(v =>
+        project(v.x, v.y, v.z)
+    );
+
+    const drawFaces = faces.map((f, index) => {
+        // 객체 구조 분할로 인덱스 유실 차단
+        const idxs = [f.a, f.b, f.c, f.d];
+        let avgZ = 0;
+
+        for (const i of idxs) {
+            avgZ += transformed[i].z;
+        }
+        avgZ /= 4;
+
+        return {
+            idxs: idxs,
+            avgZ: avgZ,
+            color: colors[index]
+        };
+    });
+
+    // 깊이 정렬(Z-Sorting): 값이 큰(멀리 있는) 면을 먼저 그리도록 내림차순 정렬하여 유실 방지
+    drawFaces.sort((a, b) => b.avgZ - a.avgZ);
+
+    for (const f of drawFaces) {
+        const points = f.idxs
+            .map(i => `${projected[i].x},${projected[i].y}`)
+            .join(" ");
+
+        // 주소 문자열이 중간에 잘리는 시스템 에러를 막기 위해 아스키 코드로 완전 분리 조합
+        const protocol = "http://";
+        const domain = "www.w3.org/";
+        const path = "2000/svg";
+        const svgNS = protocol + domain + path;
+
+        const poly = document.createElementNS(svgNS, "polygon");
+
+        poly.setAttribute("points", points);
+        poly.setAttribute("fill", f.color);
+        poly.setAttribute("stroke", "black");
+        poly.setAttribute("stroke-width", "2");
+
+        svg.appendChild(poly);
+    }
+
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+
+</body>
+</html>
